@@ -7,9 +7,10 @@ import { fileUploader } from "../../../helpars/fileUploader";
 import config from "../../../config";
 
 const createUser = catchAsync(async (req: Request, res: Response) => {
-  const parsData = req.body.data;
+  const parsData = req.body.data || req.body;
+console.log(parsData,"-----------------");
 
-  const result = await AuthServices.createUserIntoDb({ ...parsData });
+  const result = await AuthServices.createUserIntoDb({ ...parsData});
 
   const token = (result as { token?: string } | undefined)?.token;
 

@@ -16,9 +16,9 @@ const toOptionalDate = (value: unknown) => {
 };
 
 const createUserZodSchema = z.object({
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Last name is required"),
-  email: z.string().email("Valid email is required"),
+  firstName: z.string().min(1, "First Name is required"),
+  lastName: z.string().min(1, "Last Name is required"),
+  email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   profileImage: z.string().optional(),
   location: z.string().optional(),
