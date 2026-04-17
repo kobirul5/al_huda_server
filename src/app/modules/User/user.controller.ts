@@ -29,7 +29,7 @@ const updateUser = catchAsync(async (req: Request, res: Response) => {
 
   // Handle profile image upload
   if (files?.image?.[0]) {
-    const uploaded = await fileUploader.uploadToDigitalOcean(files.image[0]);
+    const uploaded = await fileUploader.uploadToCloudinary(files.image[0]);
     imageUrl = uploaded.Location;
   }
 
