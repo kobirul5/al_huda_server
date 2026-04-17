@@ -1,5 +1,7 @@
 import axios from 'axios';
 
+export type TranslationLanguage = 'en' | 'bn';
+
 export interface ISurah {
   id: number;
   name: string;
@@ -17,6 +19,8 @@ export interface ISurahDetail extends ISurah {
     transliteration: string;
   }[];
 }
+
+const supportedTranslationLanguages: TranslationLanguage[] = ['en', 'bn'];
 
 const getAllSurahsFromCDN = async () => {
   const response = await axios.get(
@@ -36,9 +40,15 @@ const getAllSurahsFromCDN = async () => {
   return { surahs, stats };
 };
 
-const getSurahById = async (id: any): Promise<ISurahDetail> => {
+const getSurahById = async (
+  id: string,
+  translationLanguage: TranslationLanguage = 'en',
+): Promise<ISurahDetail> => {
+  const resolvedLanguage = supportedTranslationLanguages.includes(translationLanguage)
+    ? translationLanguage
+    : 'en';
   const response = await axios.get(
-    `https://cdn.jsdelivr.net/npm/quran-json@3.1.2/dist/chapters/${id}.json`,
+    `https://cdn.jsdelivr.net/npm/quran-json@3.1.2/dist/chapters/${resolvedLanguage}/${id}.json`,
   );
   return response.data;
 };
