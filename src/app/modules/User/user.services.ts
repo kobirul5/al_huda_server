@@ -124,7 +124,7 @@ const getAllUsers = async (filters: IUserFilters, options: any) => {
 
   if (searchTerm) {
     andConditions.push({
-      OR: ["fullName", "email"].map((field) => ({
+      OR: ["firstName", "lastName", "email"].map((field) => ({
         [field]: {
           contains: searchTerm,
           mode: "insensitive",
@@ -156,7 +156,8 @@ const getAllUsers = async (filters: IUserFilters, options: any) => {
         },
         select: {
           id: true,
-          fullName: true,
+          firstName: true,
+          lastName: true,
           email: true,
           role: true,
           status: true,
@@ -234,7 +235,8 @@ const removeUserByAdmin = async (id: string) => {
     select: {
       id: true,
       email: true,
-      fullName: true,
+      firstName: true,
+      lastName: true,
       role: true,
     },
   });
@@ -242,7 +244,7 @@ const removeUserByAdmin = async (id: string) => {
   try {
     const html = `
       <div style="font-family: Arial, sans-serif; line-height:1.6;">
-        <h2>Hello ${deletedUser.fullName || ""},</h2>
+        <h2>Hello ${`${deletedUser.firstName} ${deletedUser.lastName}`.trim()},</h2>
         <p>We’re writing to let you know that an admin has <strong>removed your account</strong>.</p>
         <p>If you believe this was a mistake or you have any questions, please contact support.</p>
         <hr style="border:none;border-top:1px solid #eee; margin:16px 0;" />
@@ -279,7 +281,8 @@ const changeUserRole = async (userId: string, role: UserRole) => {
     data: { role },
     select: {
       id: true,
-      fullName: true,
+      firstName: true,
+      lastName: true,
       email: true,
       role: true,
     },
@@ -318,7 +321,8 @@ const suspendOrActivateUser = async (userId: string, status: UserStatus) => {
     data: { status },
     select: {
       id: true,
-      fullName: true,
+      firstName: true,
+      lastName: true,
       email: true,
       role: true,
       status: true,

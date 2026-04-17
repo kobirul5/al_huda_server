@@ -161,7 +161,12 @@ const loginUser = async (payload: {
 
   const role = userData.role;
 
-  return { token: accessToken, role: role };
+  return {
+    token: accessToken,
+    role: role,
+    email: userData.email,
+    isVerified: userData.isVerified,
+  };
 };
 
 // change password
@@ -357,7 +362,8 @@ const deleteUser = async (userId: string) => {
     select: {
       id: true,
       email: true,
-      fullName: true,
+      firstName: true,
+      lastName: true,
       role: true,
     },
   });
