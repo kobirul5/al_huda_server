@@ -70,6 +70,9 @@ const createUserIntoDb = async (payload: any) => {
 
 
 
+  // Send OTP for email verification
+  await sendOtpEmail(newUser.email);
+
   return {
     newUser,
     token: accessToken,
@@ -288,6 +291,16 @@ const verifyForgotPasswordOtp = async (payload: {
   ) {
     throw new ApiError(httpStatus.BAD_REQUEST, "Invalid OTP");
   }
+
+  // Update user as verified
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      isVerified: true,
+      otp: null,
+      otpExpiresAt: null,
+    },
+  });
 
   // if (payload && payload.fcmToken) {
   //   await prisma.user.update({
