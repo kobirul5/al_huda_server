@@ -103,10 +103,9 @@ const updateUser = async (
     data: filteredUpdateData,
   });
 
-  // Omit sensitive data like password and fcmToken before returning
+  // Omit sensitive data like password before returning
   const userWithoutSensitive = omit(updatedUser, [
     "password",
-    "fcmToken",
     "otp",
     "otpExpiresAt",
   ]);

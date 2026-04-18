@@ -111,7 +111,6 @@ const sendOtpEmail = async (email: string) => {
 const loginUser = async (payload: {
   email: string;
   password: string;
-  fcmToken?: string;
 }) => {
   const userData = await prisma.user.findUnique({
     where: {
@@ -134,12 +133,7 @@ const loginUser = async (payload: {
     throw new ApiError(httpStatus.BAD_REQUEST, "Password incorrect!");
   }
 
-  if (payload && payload.fcmToken) {
-    await prisma.user.update({
-      where: { id: userData.id },
-      data: { fcmToken: payload.fcmToken },
-    });
-  }
+
 
 
   if (userData.status === UserStatus.SUSPENDED) {
@@ -276,7 +270,6 @@ const resendOtp = async (email: string) => {
 const verifyForgotPasswordOtp = async (payload: {
   email: string;
   otp: number;
-  fcmToken?: string;
 }) => {
   // Check if the user exists
   const user = await prisma.user.findUnique({

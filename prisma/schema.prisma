@@ -20,7 +20,6 @@ model User {
     role         UserRole   @default(USER)
     status       UserStatus @default(ACTIVE)
 
-    fcmToken     String?
     otp          Int? // for verification
     otpExpiresAt DateTime?
     createdAt    DateTime  @default(now())

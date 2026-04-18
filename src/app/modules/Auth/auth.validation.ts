@@ -26,7 +26,6 @@ const createUserZodSchema = z.object({
   isVerified: z.preprocess(toBool, z.boolean().optional()),
   role: z.nativeEnum(UserRole).optional(),
   status: z.nativeEnum(UserStatus).optional(),
-  fcmToken: z.string().optional(),
 });
 
 export const AuthValidation = {
