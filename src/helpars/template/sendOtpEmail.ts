@@ -1,39 +1,23 @@
 export const sendOtpEmailTemplate = (otp: string) => `
-  <div style="background-color:#f4f4f4; padding: 40px 0; font-family: Arial, sans-serif;">
-    <div style="
-      max-width: 480px; 
-      margin: auto; 
-      background: #ffffff; 
-      padding: 30px; 
-      border-radius: 12px; 
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    ">
-      <h2 style="color:#6C63FF; text-align:center; margin-bottom: 20px;">
-        Iconic Email Verification
-      </h2>
-
-      <p style="font-size:16px; color:#333; text-align:center;">
-        Use the verification code below to verify your Iconic account:
+  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #1f2937;">
+    <div style="text-align: center; margin-bottom: 24px;">
+      <h1 style="margin: 0; color: #111827;">Al Huda Email Verification</h1>
+    </div>
+    <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px;">
+      <p style="margin-top: 0; font-size: 16px; line-height: 1.6;">
+        Use the verification code below to verify your Al Huda account:
       </p>
-
-      <div style="
-        font-size: 32px; 
-        font-weight: bold; 
-        color: #6C63FF; 
-        text-align: center; 
-        margin: 25px 0; 
-        letter-spacing: 4px;
-      ">
-        ${otp}
+      <div style="margin: 24px 0; text-align: center;">
+        <span style="display: inline-block; padding: 14px 24px; font-size: 28px; font-weight: 700; letter-spacing: 8px; background: #111827; color: #ffffff; border-radius: 10px;">
+          ${otp}
+        </span>
       </div>
-
-      <p style="font-size:14px; color:#666; text-align:center; margin-top: 20px;">
-        This code will expire shortly. If you did not request this, please ignore this email.
-      </p>
-
-      <p style="text-align:center; margin-top: 30px; font-size:12px; color:#999;">
-        Â© ${new Date().getFullYear()} Iconic. All rights reserved.
+      <p style="margin-bottom: 0; font-size: 14px; line-height: 1.6; color: #6b7280;">
+        This code will expire in 15 minutes. If you did not request this, you can safely ignore this email.
       </p>
     </div>
+    <p style="margin-top: 24px; font-size: 12px; color: #9ca3af; text-align: center;">
+      © ${new Date().getFullYear()} Al Huda. All rights reserved.
+    </p>
   </div>
 `;

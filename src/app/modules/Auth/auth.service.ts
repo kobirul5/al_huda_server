@@ -9,16 +9,51 @@ import prisma from "../../../shared/prisma";
 import { UserRole, UserStatus } from "@prisma/client";
 import config from "../../../config";
 
+const OTP_LENGTH = 4;
+const OTP_TTL_MS = 15 * 60 * 1000;
+const OTP_COOLDOWN_MS = 60 * 1000;
 
 const generateOtp = (length: number): number => {
-  const otp = Math.floor(
-    Math.random() * Math.pow(10, length)
-  );
-  return otp;
-}
+  const min = Math.pow(10, length - 1);
+  const max = Math.pow(10, length) - 1;
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+};
+
+const isOtpRecentlyIssued = (otpExpiresAt: Date | null | undefined) => {
+  if (!otpExpiresAt) {
+    return false;
+  }
+
+  const remainingMs = otpExpiresAt.getTime() - Date.now();
+  return remainingMs > OTP_TTL_MS - OTP_COOLDOWN_MS;
+};
+
+const issueOtpForUser = async (
+  user: { id: string; email: string; otp: number | null; otpExpiresAt: Date | null },
+  subject: string,
+  htmlTemplate: string
+) => {
+  if (user.otp && isOtpRecentlyIssued(user.otpExpiresAt)) {
+    return { message: "OTP was already sent recently. Please wait a minute before requesting again." };
+  }
+
+  const otp = generateOtp(OTP_LENGTH);
+  const otpExpiresAt = new Date(Date.now() + OTP_TTL_MS);
+  const html = htmlTemplate.replace("__OTP__", String(otp));
+
+  await emailSender(user.email, html, subject);
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      otp,
+      otpExpiresAt,
+    },
+  });
+
+  return { message: "OTP sent successfully" };
+};
 
 const createUserIntoDb = async (payload: any) => {
-  // Check if user already exists
   const existingUser = await prisma.user.findFirst({
     where: { email: payload.email },
   });
@@ -30,13 +65,13 @@ const createUserIntoDb = async (payload: any) => {
     );
   }
 
-  if(payload.role === UserRole.ADMIN){
+  if (payload.role === UserRole.ADMIN) {
     throw new ApiError(
       400,
       `Cannot register as ADMIN role`
     );
   }
-  // Hash the password
+
   const hashedPassword: string = await bcrypt.hash(
     payload.password!,
     Number(config.bcrypt_salt_rounds)
@@ -68,9 +103,6 @@ const createUserIntoDb = async (payload: any) => {
     config.jwt.expires_in as string
   );
 
-
-
-  // Send OTP for email verification
   await sendOtpEmail(newUser.email);
 
   return {
@@ -79,11 +111,11 @@ const createUserIntoDb = async (payload: any) => {
   };
 };
 
-// Helper function (non-blocking)
 const sendOtpEmail = async (email: string) => {
   const userExists = await prisma.user.findUnique({
-    where: { email: email },
+    where: { email },
   });
+
   if (!userExists) {
     throw new ApiError(
       httpStatus.NOT_FOUND,
@@ -91,26 +123,15 @@ const sendOtpEmail = async (email: string) => {
     );
   }
 
-  const otp = generateOtp(4);
-  const otpExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
-  const html = sendOtpEmailTemplate(String(otp));
-  const emailSubject = "Iconic - Verify Your Email";
+  const html = sendOtpEmailTemplate("__OTP__");
+  const emailSubject = "Al Huda - Verify Your Email";
 
-  await emailSender(email, html, emailSubject);
-  const user = await prisma.user.update({
-    where: {
-      email: email,
-    },
-    data: {
-      otp: otp,
-      otpExpiresAt: otpExpiresAt,
-    },
-  });
-  console.log(`📧 OTP sent to ${email}`);
+  await issueOtpForUser(userExists, emailSubject, html);
+  console.log(`OTP sent to ${email}`);
+
   return "Verification code sent to your email";
 };
 
-// user login service
 const loginUser = async (payload: {
   email: string;
   password: string;
@@ -127,6 +148,7 @@ const loginUser = async (payload: {
       "User not found! with this email " + payload.email
     );
   }
+
   const isCorrectPassword: boolean = await bcrypt.compare(
     payload.password,
     userData.password
@@ -135,9 +157,6 @@ const loginUser = async (payload: {
   if (!isCorrectPassword) {
     throw new ApiError(httpStatus.BAD_REQUEST, "Password incorrect!");
   }
-
-
-
 
   if (userData.status === UserStatus.SUSPENDED) {
     throw new ApiError(
@@ -160,13 +179,12 @@ const loginUser = async (payload: {
 
   return {
     token: accessToken,
-    role: role,
+    role,
     email: userData.email,
     isVerified: userData.isVerified,
   };
 };
 
-// change password
 const changePassword = async (
   userId: string,
   newPassword: string,
@@ -180,7 +198,7 @@ const changePassword = async (
     throw new ApiError(404, "User not found");
   }
 
-  const isPasswordValid = await bcrypt.compare(oldPassword, user?.password);
+  const isPasswordValid = await bcrypt.compare(oldPassword, user.password);
 
   if (!isPasswordValid) {
     throw new ApiError(401, "Incorrect old password");
@@ -188,7 +206,7 @@ const changePassword = async (
 
   const hashedPassword = await bcrypt.hash(newPassword, 12);
 
-  const result = await prisma.user.update({
+  await prisma.user.update({
     where: {
       id: userId,
     },
@@ -196,85 +214,54 @@ const changePassword = async (
       password: hashedPassword,
     },
   });
+
   return { message: "Password changed successfully" };
 };
 
-// forgot password
 const forgotPassword = async (payload: { email: string }) => {
-  // Fetch user data or throw if not found
   const userData = await prisma.user.findFirstOrThrow({
     where: {
       email: payload.email,
     },
   });
 
-  const otp = generateOtp(4);
-  const otpExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
-
   console.log(payload.email);
 
   try {
-    const html = `Here is your forgot password OTP code: ${otp}. It will expire in 15 minutes.`;
-
-    await emailSender(userData.email, html, "Forgot Password OTP");
+    const html = "Here is your forgot password OTP code: __OTP__. It will expire in 15 minutes.";
+    await issueOtpForUser(userData, "Al Huda - Forgot Password OTP", html);
   } catch (error) {
     console.error(`Failed to send OTP email:`, error);
   }
 
-  // Update the user's OTP and expiration in the database
-  await prisma.user.update({
-    where: { id: userData.id },
-    data: {
-      otp: otp,
-      otpExpiresAt: otpExpiresAt,
-    },
-  });
-
   return {
-    otp,
+    message: "OTP sent successfully",
   };
 };
 
-// resend otp
 const resendOtp = async (email: string) => {
-  // Check if the user exists
   const user = await prisma.user.findUnique({
-    where: { email: email },
+    where: { email },
   });
 
   if (!user) {
     throw new ApiError(httpStatus.NOT_FOUND, "This user is not found!");
   }
 
-  const otp = generateOtp(4);
-  const otpExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
-
   try {
-    const html = `Here is your new OTP code: ${otp}. It will expire in 15 minutes.`;
-
-    await emailSender(user.email, html, "Resend OTP");
+    const html = "Here is your new OTP code: __OTP__. It will expire in 15 minutes.";
+    await issueOtpForUser(user, "Al Huda - Resend OTP", html);
   } catch (error) {
     console.error(`Failed to send OTP email:`, error);
   }
 
-  // Update the user's profile with the new OTP and expiration
-  const updatedUser = await prisma.user.update({
-    where: { id: user.id },
-    data: {
-      otp: otp,
-      otpExpiresAt: otpExpiresAt,
-    },
-  });
-
-  return { otp };
+  return { message: "OTP resent successfully" };
 };
 
-// verify forgot password OTP
 const verifyForgotPasswordOtp = async (payload: {
   email: string;
   otp: number;
 }) => {
-  // Check if the user exists
   const user = await prisma.user.findUnique({
     where: { email: payload.email },
   });
@@ -283,7 +270,6 @@ const verifyForgotPasswordOtp = async (payload: {
     throw new ApiError(httpStatus.NOT_FOUND, "This user is not found!");
   }
 
-  // Check if the OTP is valid and not expired
   if (
     user.otp !== payload.otp ||
     !user.otpExpiresAt ||
@@ -292,7 +278,6 @@ const verifyForgotPasswordOtp = async (payload: {
     throw new ApiError(httpStatus.BAD_REQUEST, "Invalid OTP");
   }
 
-  // Update user as verified
   await prisma.user.update({
     where: { id: user.id },
     data: {
@@ -302,12 +287,6 @@ const verifyForgotPasswordOtp = async (payload: {
     },
   });
 
-  // if (payload && payload.fcmToken) {
-  //   await prisma.user.update({
-  //     where: { id: user.id },
-  //     data: { fcmToken: payload.fcmToken },
-  //   });
-  // }
   const accessToken = jwtHelpers.generateToken(
     {
       id: user.id,
@@ -320,12 +299,10 @@ const verifyForgotPasswordOtp = async (payload: {
 
   const role = user.role;
 
-  return { token: accessToken, role: role };
+  return { token: accessToken, role };
 };
 
-// reset password
 const resetPassword = async (payload: { password: string; email: string }) => {
-  // Check if the user exists
   const user = await prisma.user.findUnique({
     where: { email: payload.email },
   });
@@ -334,26 +311,23 @@ const resetPassword = async (payload: { password: string; email: string }) => {
     throw new ApiError(httpStatus.NOT_FOUND, "This user is not found!");
   }
 
-  // Hash the new password
   const hashedPassword = await bcrypt.hash(
     payload.password,
     Number(config.bcrypt_salt_rounds)
   );
 
-  // Update the user's password in the database
   await prisma.user.update({
     where: { email: payload.email },
     data: {
-      password: hashedPassword, // Update with the hashed password
-      otp: null, // Clear the OTP
-      otpExpiresAt: null, // Clear OTP expiration
+      password: hashedPassword,
+      otp: null,
+      otpExpiresAt: null,
     },
   });
 
   return { message: "Password reset successfully" };
 };
 
-// delete user
 const deleteUser = async (userId: string) => {
   const user = await prisma.user.findUnique({
     where: { id: userId },
