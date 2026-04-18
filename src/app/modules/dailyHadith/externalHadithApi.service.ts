@@ -9,8 +9,10 @@ export interface HadithItem {
 
 const BASE_URL = "https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions";
 
-async function fetchHadithsByBook(bookId: string): Promise<HadithItem[]> {
+async function fetchHadithsByBook(bookId: string, page: number = 1, limit: number = 20): Promise<HadithItem[]> {
   try {
+    const start = (page - 1) * limit;
+    const end = start + limit;
 
     const [engRes, benRes, araRes] = await Promise.all([
       axios.get(`${BASE_URL}/eng-${bookId}.min.json`),
@@ -22,12 +24,13 @@ async function fetchHadithsByBook(bookId: string): Promise<HadithItem[]> {
     const benHadiths = benRes.data.hadiths || [];
     const araHadiths = araRes.data.hadiths || [];
 
-    const mergedHadiths: HadithItem[] = engHadiths.slice(0, 500).map((h: any, index: number) => {
+    const mergedHadiths: HadithItem[] = engHadiths.slice(start, end).map((h: any, index: number) => {
+      const actualIndex = start + index;
       return {
         number: h.hadithnumber,
-        arabic: araHadiths[index]?.text || "",
+        arabic: araHadiths[actualIndex]?.text || "",
         english: h.text || "",
-        bangla: benHadiths[index]?.text || "অনুবাদ পাওয়া যায়নি",
+        bangla: benHadiths[actualIndex]?.text || "অনুবাদ পাওয়া যায়নি",
       };
     });
 

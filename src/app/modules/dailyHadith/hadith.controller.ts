@@ -6,7 +6,10 @@ import { hadithService } from "./hadith.service";
 
 const getHadithsByBook = catchAsync(async (req: Request, res: Response) => {
   const { bookName } = req.params;
-  const result = await hadithService.getHadithsByBook(bookName as string);
+  const page = Number(req.query.page) || 1;
+  const limit = Number(req.query.limit) || 20;
+  
+  const result = await hadithService.getHadithsByBook(bookName as string, page, limit);
 
   sendResponse(res, {
     statusCode: httpStatus.OK,
