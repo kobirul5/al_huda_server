@@ -57,9 +57,37 @@ const getSinglePara = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getAllPages = catchAsync(async (req: Request, res: Response) => {
+  const result = await QuranService.getAllPages();
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Pages fetched successfully',
+    data: result,
+  });
+});
+
+const getSinglePage = catchAsync(async (req: Request, res: Response) => {
+  const pageId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const translationQuery = req.query.translation;
+  const translationLanguage =
+    typeof translationQuery === 'string' ? (translationQuery as TranslationLanguage) : 'en';
+  const result = await QuranService.getPageById(pageId, translationLanguage);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Page fetched successfully',
+    data: result,
+  });
+});
+
 export const QuranController = {
   getAllSurahs,
   getSingleSurah,
   getAllParas,
   getSinglePara,
+  getAllPages,
+  getSinglePage,
 };

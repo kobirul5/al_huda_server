@@ -34,6 +34,18 @@ interface IJuzBoundary {
   };
 }
 
+interface IPageBoundary {
+  id: number;
+  start: {
+    surah: number;
+    ayah: number;
+  };
+  end: {
+    surah: number;
+    ayah: number;
+  };
+}
+
 export interface IParaSurahSegment extends ISurah {
   start_ayah: number;
   end_ayah: number;
@@ -63,7 +75,38 @@ export interface IParaDetail {
   surahs: IParaSurahSegment[];
 }
 
+export interface IPageSurahSummary extends ISurah {
+  start_ayah: number;
+  end_ayah: number;
+}
+
+export interface IPageSummary {
+  id: number;
+  start: IPageBoundary['start'];
+  end: IPageBoundary['end'];
+  total_surahs: number;
+  total_verses: number;
+  surahs: IPageSurahSummary[];
+}
+
+export interface IPageSurahSegment extends ISurah {
+  start_ayah: number;
+  end_ayah: number;
+  verses: ISurahDetail['verses'];
+}
+
+export interface IPageDetail {
+  id: number;
+  start: IPageBoundary['start'];
+  end: IPageBoundary['end'];
+  total_surahs: number;
+  total_verses: number;
+  surahs: IPageSurahSegment[];
+}
+
 const supportedTranslationLanguages: TranslationLanguage[] = ['en', 'bn'];
+const totalQuranPages = 604;
+let pageBoundariesCache: IPageBoundary[] | null = null;
 
 const juzBoundaries: IJuzBoundary[] = [
   { id: 1, start: { surah: 1, ayah: 1 }, end: { surah: 2, ayah: 141 } },
@@ -198,6 +241,104 @@ const getParaSummaryByBoundary = (
   };
 };
 
+const getPageBoundaries = async (surahIndex: ISurah[]): Promise<IPageBoundary[]> => {
+  if (pageBoundariesCache) {
+    return pageBoundariesCache;
+  }
+
+  const response = await axios.get('https://api.alquran.cloud/v1/meta');
+  const pageReferences = response.data?.data?.pages?.references as
+    | Array<{ surah: number; ayah: number }>
+    | undefined;
+
+  if (!pageReferences || pageReferences.length !== totalQuranPages) {
+    throw new ApiError(httpStatus.BAD_GATEWAY, 'Failed to fetch Quran page metadata');
+  }
+
+  pageBoundariesCache = pageReferences.map((reference, index) => {
+    const nextReference = pageReferences[index + 1];
+    const end = nextReference
+      ? {
+          surah: nextReference.surah === reference.surah ? reference.surah : nextReference.surah - 1,
+          ayah:
+            nextReference.surah === reference.surah
+              ? nextReference.ayah - 1
+              : surahIndex.find(surah => surah.id === nextReference.surah - 1)?.total_verses ?? 0,
+        }
+      : {
+          surah: 114,
+          ayah: surahIndex.find(surah => surah.id === 114)?.total_verses ?? 6,
+        };
+
+    return {
+      id: index + 1,
+      start: reference,
+      end,
+    };
+  });
+
+  return pageBoundariesCache;
+};
+
+const getPageSummaryByBoundary = (
+  boundary: IPageBoundary,
+  surahIndex: ISurah[],
+): IPageSummary => {
+  const surahs = surahIndex
+    .filter(surah => surah.id >= boundary.start.surah && surah.id <= boundary.end.surah)
+    .map(surah => {
+      const startAyah = surah.id === boundary.start.surah ? boundary.start.ayah : 1;
+      const endAyah = surah.id === boundary.end.surah ? boundary.end.ayah : surah.total_verses;
+
+      return {
+        ...surah,
+        start_ayah: startAyah,
+        end_ayah: endAyah,
+      };
+    });
+
+  return {
+    id: boundary.id,
+    start: boundary.start,
+    end: boundary.end,
+    total_surahs: surahs.length,
+    total_verses: surahs.reduce((total, surah) => total + surah.end_ayah - surah.start_ayah + 1, 0),
+    surahs,
+  };
+};
+
+const getPageByBoundary = async (
+  boundary: IPageBoundary,
+  surahIndex: ISurah[],
+  translationLanguage: TranslationLanguage,
+): Promise<IPageDetail> => {
+  const pageSummary = getPageSummaryByBoundary(boundary, surahIndex);
+  const surahCache = new Map<number, Promise<ISurahDetail>>();
+
+  const surahs = await Promise.all(
+    pageSummary.surahs.map(async surah => {
+      if (!surahCache.has(surah.id)) {
+        surahCache.set(surah.id, getSurahById(String(surah.id), translationLanguage));
+      }
+
+      const surahDetail = await surahCache.get(surah.id)!;
+
+      return {
+        ...surah,
+        verses: surahDetail.verses.filter(
+          verse => verse.id >= surah.start_ayah && verse.id <= surah.end_ayah,
+        ),
+      };
+    }),
+  );
+
+  return {
+    ...pageSummary,
+    total_verses: surahs.reduce((total, surah) => total + surah.verses.length, 0),
+    surahs,
+  };
+};
+
 const getParaById = async (
   id: string,
   translationLanguage: TranslationLanguage = 'en',
@@ -221,9 +362,40 @@ const getAllParas = async (): Promise<IParaSummary[]> => {
   return juzBoundaries.map(boundary => getParaSummaryByBoundary(boundary, surahs));
 };
 
+const getAllPages = async (): Promise<IPageSummary[]> => {
+  const { surahs } = await getAllSurahsFromCDN();
+  const pageBoundaries = await getPageBoundaries(surahs);
+
+  return pageBoundaries.map(boundary => getPageSummaryByBoundary(boundary, surahs));
+};
+
+const getPageById = async (
+  id: string,
+  translationLanguage: TranslationLanguage = 'en',
+): Promise<IPageDetail> => {
+  const pageId = Number(id);
+
+  if (!Number.isInteger(pageId) || pageId < 1 || pageId > totalQuranPages) {
+    throw new ApiError(httpStatus.BAD_REQUEST, `Page id must be between 1 and ${totalQuranPages}`);
+  }
+
+  const resolvedLanguage = getResolvedTranslationLanguage(translationLanguage);
+  const { surahs } = await getAllSurahsFromCDN();
+  const pageBoundaries = await getPageBoundaries(surahs);
+  const boundary = pageBoundaries.find(page => page.id === pageId);
+
+  if (!boundary) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Page not found');
+  }
+
+  return getPageByBoundary(boundary, surahs, resolvedLanguage);
+};
+
 export const QuranService = {
   getAllSurahsFromCDN,
   getSurahById,
   getAllParas,
   getParaById,
+  getAllPages,
+  getPageById,
 };
