@@ -32,10 +32,7 @@ const getSingleSurah = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getAllParas = catchAsync(async (req: Request, res: Response) => {
-  const translationQuery = req.query.translation;
-  const translationLanguage =
-    typeof translationQuery === 'string' ? (translationQuery as TranslationLanguage) : 'en';
-  const result = await QuranService.getAllParas(translationLanguage);
+  const result = await QuranService.getAllParas();
 
   sendResponse(res, {
     statusCode: httpStatus.OK,

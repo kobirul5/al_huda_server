@@ -40,6 +40,20 @@ export interface IParaSurahSegment extends ISurah {
   verses: ISurahDetail['verses'];
 }
 
+export interface IParaSurahSummary extends ISurah {
+  start_ayah: number;
+  end_ayah: number;
+}
+
+export interface IParaSummary {
+  id: number;
+  start: IJuzBoundary['start'];
+  end: IJuzBoundary['end'];
+  total_surahs: number;
+  total_verses: number;
+  surahs: IParaSurahSummary[];
+}
+
 export interface IParaDetail {
   id: number;
   start: IJuzBoundary['start'];
@@ -157,6 +171,33 @@ const getParaByBoundary = async (
   };
 };
 
+const getParaSummaryByBoundary = (
+  boundary: IJuzBoundary,
+  surahIndex: ISurah[],
+): IParaSummary => {
+  const surahs = surahIndex
+    .filter(surah => surah.id >= boundary.start.surah && surah.id <= boundary.end.surah)
+    .map(surah => {
+      const startAyah = surah.id === boundary.start.surah ? boundary.start.ayah : 1;
+      const endAyah = surah.id === boundary.end.surah ? boundary.end.ayah : surah.total_verses;
+
+      return {
+        ...surah,
+        start_ayah: startAyah,
+        end_ayah: endAyah,
+      };
+    });
+
+  return {
+    id: boundary.id,
+    start: boundary.start,
+    end: boundary.end,
+    total_surahs: surahs.length,
+    total_verses: surahs.reduce((total, surah) => total + surah.end_ayah - surah.start_ayah + 1, 0),
+    surahs,
+  };
+};
+
 const getParaById = async (
   id: string,
   translationLanguage: TranslationLanguage = 'en',
@@ -174,18 +215,10 @@ const getParaById = async (
   return getParaByBoundary(boundary, surahs, resolvedLanguage, new Map());
 };
 
-const getAllParas = async (
-  translationLanguage: TranslationLanguage = 'en',
-): Promise<IParaDetail[]> => {
-  const resolvedLanguage = getResolvedTranslationLanguage(translationLanguage);
+const getAllParas = async (): Promise<IParaSummary[]> => {
   const { surahs } = await getAllSurahsFromCDN();
-  const surahCache = new Map<number, Promise<ISurahDetail>>();
 
-  return Promise.all(
-    juzBoundaries.map(boundary =>
-      getParaByBoundary(boundary, surahs, resolvedLanguage, surahCache),
-    ),
-  );
+  return juzBoundaries.map(boundary => getParaSummaryByBoundary(boundary, surahs));
 };
 
 export const QuranService = {
