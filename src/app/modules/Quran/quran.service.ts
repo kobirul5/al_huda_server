@@ -75,7 +75,10 @@ export interface IParaDetail {
   surahs: IParaSurahSegment[];
 }
 
-export interface IPageSurahSummary extends ISurah {
+export interface IPageSurahSummary {
+  id: number;
+  name: string;
+  transliteration: string;
   start_ayah: number;
   end_ayah: number;
 }
@@ -89,7 +92,10 @@ export interface IPageSummary {
   surahs: IPageSurahSummary[];
 }
 
-export interface IPageSurahSegment extends ISurah {
+export interface IPageSurahSegment {
+  id: number;
+  name: string;
+  transliteration: string;
   start_ayah: number;
   end_ayah: number;
   verses: ISurahDetail['verses'];
@@ -291,7 +297,9 @@ const getPageSummaryByBoundary = (
       const endAyah = surah.id === boundary.end.surah ? boundary.end.ayah : surah.total_verses;
 
       return {
-        ...surah,
+        id: surah.id,
+        name: surah.name,
+        transliteration: surah.transliteration,
         start_ayah: startAyah,
         end_ayah: endAyah,
       };

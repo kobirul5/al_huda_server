@@ -6,6 +6,7 @@
     "start": "node ./dist/server.js",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
+    "deploy":"vercel --prod",
     "generate": "ts-node src/generate-module.js",
     "postinstall": "prisma generate",
     "hadith:seed": "ts-node src/app/modules/dailyHadith/hadith.seeder.ts",
