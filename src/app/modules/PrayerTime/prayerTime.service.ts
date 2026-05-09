@@ -6,7 +6,7 @@ const getPrayerTimes = async (city: string = 'Dhaka', country: string = 'Banglad
   try {
     // Fetch Prayer Times
     const prayerResponse = await axios.get(
-      `http://api.aladhan.com/v1/timingsByCity`,
+      `https://api.aladhan.com/v1/timingsByCity`,
       {
         params: {
           city,
