@@ -4,24 +4,38 @@ import ApiError from '../../../errors/ApiErrors';
 
 const getPrayerTimes = async (city: string = 'Dhaka', country: string = 'Bangladesh') => {
   try {
-    const response = await axios.get(
+    // Fetch Prayer Times
+    const prayerResponse = await axios.get(
       `http://api.aladhan.com/v1/timingsByCity`,
       {
         params: {
           city,
           country,
-          method: 1, // University of Islamic Sciences, Karachi
+          method: 1, 
         },
       }
     );
 
-    if (response.data.code !== 200) {
+    if (prayerResponse.data.code !== 200) {
       throw new ApiError(httpStatus.BAD_GATEWAY, 'Failed to fetch prayer times');
     }
 
-    return response.data.data;
+    // Fetch Weather Data (wttr.in provides JSON format with ?format=j1)
+    let weatherData = null;
+    try {
+      const weatherResponse = await axios.get(`https://wttr.in/${city}?format=j1`);
+      weatherData = weatherResponse.data;
+    } catch (err) {
+      console.error('Weather fetch failed:', err);
+      // Fallback or null
+    }
+
+    return {
+      prayer: prayerResponse.data.data,
+      weather: weatherData,
+    };
   } catch (error) {
-    throw new ApiError(httpStatus.BAD_GATEWAY, 'Error fetching prayer times');
+    throw new ApiError(httpStatus.BAD_GATEWAY, 'Error fetching data');
   }
 };
 
