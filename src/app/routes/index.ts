@@ -5,6 +5,8 @@ import { QuranRoutes } from "../modules/Quran/quran.route";
 
 import { hadithRoutes } from "../modules/dailyHadith/hadith.routes";
 
+import { PrayerTimeRoutes } from "../modules/PrayerTime/prayerTime.route";
+
 const router = express.Router();
 
 const moduleRoutes = [
@@ -23,6 +25,10 @@ const moduleRoutes = [
   {
     path: "/hadith",
     route: hadithRoutes,
+  },
+  {
+    path: "/prayer-time",
+    route: PrayerTimeRoutes,
   },
 ];
 
