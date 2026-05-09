@@ -43,8 +43,12 @@ const getPrayerTimes = async (city: string = 'Dhaka', country: string = 'Banglad
       prayer: prayerResponse.data.data,
       weather: weatherData,
     };
-  } catch (error) {
-    throw new ApiError(httpStatus.BAD_GATEWAY, 'Error fetching data');
+  } catch (error: any) {
+    console.error('PrayerTime Service Error:', error?.message || error);
+    throw new ApiError(
+      error?.response?.status || httpStatus.BAD_GATEWAY,
+      `Error fetching prayer data: ${error?.message || 'Unknown error'}`
+    );
   }
 };
 
