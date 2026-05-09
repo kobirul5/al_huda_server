@@ -22,13 +22,22 @@ const getPrayerTimes = async (city: string = 'Dhaka', country: string = 'Banglad
 
     // Fetch Weather Data (wttr.in provides JSON format with ?format=j1)
     let weatherData = null;
-    try {
-      const weatherResponse = await axios.get(`https://wttr.in/${city}?format=j1`);
-      weatherData = weatherResponse.data;
-    } catch (err) {
-      console.error('Weather fetch failed:', err);
-      // Fallback or null
-    }
+    const fetchWeather = async (retryCount = 0): Promise<any> => {
+      try {
+        const response = await axios.get(`https://wttr.in/${city}?format=j1`, {
+          timeout: 5000, // 5 seconds timeout
+        });
+        return response.data;
+      } catch (err) {
+        if (retryCount < 1) {
+          return fetchWeather(retryCount + 1);
+        }
+        console.error('Weather fetch failed after retry:', err instanceof Error ? err.message : err);
+        return null;
+      }
+    };
+
+    weatherData = await fetchWeather();
 
     return {
       prayer: prayerResponse.data.data,
