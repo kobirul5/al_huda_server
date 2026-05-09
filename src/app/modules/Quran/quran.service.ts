@@ -16,9 +16,11 @@ export interface ISurah {
 export interface ISurahDetail extends ISurah {
   verses: {
     id: number;
+    surahId: number;
     text: string;
     translation: string;
     transliteration: string;
+    audio: string;
   }[];
 }
 
@@ -175,7 +177,21 @@ const getSurahById = async (
   const response = await axios.get(
     `https://cdn.jsdelivr.net/npm/quran-json@3.1.2/dist/chapters/${resolvedLanguage}/${id}.json`,
   );
-  return response.data;
+
+  const surahDetail: ISurahDetail = response.data;
+
+  // Add audio URLs and surahId
+  surahDetail.verses = surahDetail.verses.map(verse => {
+    const surahPadded = String(id).padStart(3, '0');
+    const ayahPadded = String(verse.id).padStart(3, '0');
+    return {
+      ...verse,
+      surahId: Number(id),
+      audio: `https://verses.quran.com/Alafasy/mp3/${surahPadded}${ayahPadded}.mp3`,
+    };
+  });
+
+  return surahDetail;
 };
 
 const getResolvedTranslationLanguage = (translationLanguage: TranslationLanguage) =>
