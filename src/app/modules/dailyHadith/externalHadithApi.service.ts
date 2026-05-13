@@ -7,36 +7,59 @@ export interface HadithItem {
   bangla: string;
 }
 
-const BASE_URL = "https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions";
+type ExternalHadith = {
+  text: string;
+};
+
+type ExternalHadithResponse = {
+  hadiths?: ExternalHadith[];
+};
+
+const BASE_URL = "https://raw.githubusercontent.com/fawazahmed0/hadith-api/1/editions";
+const REQUEST_TIMEOUT_MS = 10000;
+
+async function fetchHadithText(language: string, bookId: string, hadithNumber: number) {
+  try {
+    const response = await axios.get<ExternalHadithResponse>(
+      `${BASE_URL}/${language}-${bookId}/${hadithNumber}.min.json`,
+      { timeout: REQUEST_TIMEOUT_MS }
+    );
+
+    return response.data.hadiths?.[0]?.text || "";
+  } catch {
+    return "";
+  }
+}
+
+async function fetchHadithByNumber(bookId: string, hadithNumber: number): Promise<HadithItem | null> {
+  const [english, bangla, arabic] = await Promise.all([
+    fetchHadithText("eng", bookId, hadithNumber),
+    fetchHadithText("ben", bookId, hadithNumber),
+    fetchHadithText("ara", bookId, hadithNumber),
+  ]);
+
+  if (!english) {
+    return null;
+  }
+
+  return {
+    number: hadithNumber,
+    arabic,
+    english,
+    bangla: bangla || "অনুবাদ পাওয়া যায়নি",
+  };
+}
 
 async function fetchHadithsByBook(bookId: string, page: number = 1, limit: number = 20): Promise<HadithItem[]> {
   try {
-    const start = (page - 1) * limit;
-    const end = start + limit;
+    const start = (page - 1) * limit + 1;
+    const hadithNumbers = Array.from({ length: limit }, (_, index) => start + index);
+    const hadiths = await Promise.all(hadithNumbers.map((number) => fetchHadithByNumber(bookId, number)));
 
-    const [engRes, benRes, araRes] = await Promise.all([
-      axios.get(`${BASE_URL}/eng-${bookId}.min.json`),
-      axios.get(`${BASE_URL}/ben-${bookId}.min.json`).catch(() => ({ data: { hadiths: [] } })), // Fallback if Bangla not available
-      axios.get(`${BASE_URL}/ara-${bookId}.min.json`).catch(() => ({ data: { hadiths: [] } }))
-    ]);
-
-    const engHadiths = engRes.data.hadiths || [];
-    const benHadiths = benRes.data.hadiths || [];
-    const araHadiths = araRes.data.hadiths || [];
-
-    const mergedHadiths: HadithItem[] = engHadiths.slice(start, end).map((h: any, index: number) => {
-      const actualIndex = start + index;
-      return {
-        number: h.hadithnumber,
-        arabic: araHadiths[actualIndex]?.text || "",
-        english: h.text || "",
-        bangla: benHadiths[actualIndex]?.text || "অনুবাদ পাওয়া যায়নি",
-      };
-    });
-
-    return mergedHadiths;
-  } catch (error: any) {
-    console.error(`[Hadith API Error] Book: ${bookId}`, error.message);
+    return hadiths.filter((hadith): hadith is HadithItem => Boolean(hadith));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error(`[Hadith API Error] Book: ${bookId}`, message);
     return [];
   }
 }
