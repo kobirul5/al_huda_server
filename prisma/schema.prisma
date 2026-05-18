@@ -28,6 +28,20 @@ model User {
     @@map("users")
 }
 
+model AiHistory {
+    id         String   @id @default(auto()) @map("_id") @db.ObjectId
+    userId     String   @db.ObjectId
+    prompt     String
+    suggestion String
+    category   String
+    language   String
+    references Json     @default("[]")
+    createdAt  DateTime @default(now())
+    updatedAt  DateTime @updatedAt
+
+    @@map("ai_histories")
+}
+
 enum UserRole {
     USER
     ADMIN

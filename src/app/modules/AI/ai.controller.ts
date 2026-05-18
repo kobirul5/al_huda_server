@@ -6,13 +6,41 @@ import { AIServices } from "./ai.service";
 
 // Get Islamic suggestion based on prompt
 const getIslamicSuggestion = catchAsync(async (req: Request, res: Response) => {
-  const result = await AIServices.getIslamicSuggestion(req.body);
+  const userId = (req as any).user?.id;
+  const result = await AIServices.getIslamicSuggestion(req.body, userId);
 
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
     message: "Islamic suggestion retrieved successfully",
     data: result,
+  });
+});
+
+// Fetch user's AI history
+const getAiHistoryForUser = catchAsync(async (req: Request, res: Response) => {
+  const userId = (req as any).user?.id;
+  const result = await AIServices.getAiHistoryForUser(userId);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "AI history retrieved successfully",
+    data: result,
+  });
+});
+
+// Delete user's single AI history item
+const deleteAiHistoryItem = catchAsync(async (req: Request, res: Response) => {
+  const userId = (req as any).user?.id;
+  const { id: historyId } = req.params;
+  await AIServices.deleteAiHistoryItem(userId, historyId as string);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "AI history item deleted successfully",
+    data: null,
   });
 });
 
@@ -48,4 +76,6 @@ export const AIController = {
   getIslamicSuggestion,
   getQuranReferences,
   getHadithReferences,
+  getAiHistoryForUser,
+  deleteAiHistoryItem,
 };

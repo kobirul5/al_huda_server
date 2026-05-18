@@ -3,6 +3,7 @@ import { IAISuggestion, IIslamicSuggestionRequest, IOpenRouterResponse, IReferen
 import config from "../../../config";
 import ApiError from "../../../errors/ApiError";
 import httpStatus from "http-status";
+import prisma from "../../../shared/prisma";
 
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const OPENROUTER_API_KEY = process.env.OPEN_ROUTER_API_KEY;
@@ -140,7 +141,7 @@ const parseAIResponse = (response: string): {
 };
 
 // Generate Islamic suggestion with Quran and Hadith references
-const getIslamicSuggestion = async (data: IIslamicSuggestionRequest): Promise<IAISuggestion> => {
+const getIslamicSuggestion = async (data: IIslamicSuggestionRequest, userId?: string): Promise<IAISuggestion> => {
   try {
     // Check if API key is configured
     if (!OPENROUTER_API_KEY) {
@@ -190,6 +191,19 @@ const getIslamicSuggestion = async (data: IIslamicSuggestionRequest): Promise<IA
     const aiResponse = response.data.choices[0].message.content;
     const parsedResponse = parseAIResponse(aiResponse);
 
+    if (userId) {
+      await prisma.aiHistory.create({
+        data: {
+          userId,
+          prompt: data.prompt,
+          suggestion: parsedResponse.suggestion,
+          category: data.category || "general",
+          language: data.language || "en",
+          references: parsedResponse.references as any || [],
+        }
+      });
+    }
+
     return {
       prompt: data.prompt,
       suggestion: parsedResponse.suggestion,
@@ -234,9 +248,33 @@ const getHadithReference = async (query: string, language: "en" | "bn" = "en"): 
   return suggestion.references;
 };
 
+// Fetch AI History for a specific logged in user
+const getAiHistoryForUser = async (userId: string) => {
+  return await prisma.aiHistory.findMany({
+    where: {
+      userId,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+};
+
+// Delete a single AI history item for the authenticated user
+const deleteAiHistoryItem = async (userId: string, historyId: string) => {
+  return await prisma.aiHistory.deleteMany({
+    where: {
+      id: historyId,
+      userId,
+    },
+  });
+};
+
 // Export services object matching global codebase patterns
 export const AIServices = {
   getIslamicSuggestion,
   getQuranReference,
   getHadithReference,
+  getAiHistoryForUser,
+  deleteAiHistoryItem,
 };
