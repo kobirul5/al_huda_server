@@ -143,8 +143,8 @@ const parseAIResponse = (response: string): {
 // Generate Islamic suggestion with Quran and Hadith references
 const getIslamicSuggestion = async (data: IIslamicSuggestionRequest, userId?: string): Promise<IAISuggestion> => {
   try {
-    // Check if API key is configured
-    if (!OPENROUTER_API_KEY) {
+    const apiKey = process.env.OPEN_ROUTER_API_KEY || OPENROUTER_API_KEY;
+    if (!apiKey) {
       throw new ApiError(
         httpStatus.INTERNAL_SERVER_ERROR,
         "OpenRouter API key is not configured"
@@ -173,7 +173,7 @@ const getIslamicSuggestion = async (data: IIslamicSuggestionRequest, userId?: st
       },
       {
         headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${apiKey}`,
           "HTTP-Referer": "https://alhuda.app",
           "X-Title": "Al Huda Islamic Assistant",
           "Content-Type": "application/json",
