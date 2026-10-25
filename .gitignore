@@ -2,6 +2,6 @@ node_modules
 dist
 .vercel
 .vscode
-.env 
+.env
 .env*.local
 Al_Huda_API_Postman_Collection.json

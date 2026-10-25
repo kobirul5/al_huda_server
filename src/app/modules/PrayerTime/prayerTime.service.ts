@@ -2,12 +2,12 @@ import axios from 'axios';
 import httpStatus from 'http-status';
 import ApiError from '../../../errors/ApiErrors';
 
-const PRAYER_API_TIMEOUT = 10000; // 10 seconds
-const WEATHER_API_TIMEOUT = 8000; // 8 seconds
-const MAX_RETRIES = 2;
-const RETRY_DELAY = 1000; // 1 second
+const PRAYER_API_TIMEOUT = 6000;  // 10s → 6s
+const WEATHER_API_TIMEOUT = 4000; // 8s → 4s
+const MAX_RETRIES = 1;            // 2 retries → 1 retry (attempt: 0, 1)
+const RETRY_DELAY = 500;          // 1s → 500ms
 
-// Utility function to implement retry logic with exponential backoff
+// Utility: retry with exponential backoff
 const retryWithBackoff = async (
   fn: () => Promise<any>,
   maxRetries: number = MAX_RETRIES,
@@ -31,26 +31,21 @@ const retryWithBackoff = async (
 
 const getPrayerTimes = async (city: string = 'Dhaka', country: string = 'Bangladesh') => {
   try {
-    // Fetch Prayer Times with retry logic
+    // ─── Prayer Times (critical) ──────────────────────────────────────────────
     let prayerResponse;
     try {
       prayerResponse = await retryWithBackoff(async () => {
         return await axios.get(
           `https://api.aladhan.com/v1/timingsByCity`,
           {
-            params: {
-              city,
-              country,
-              method: 1,
-            },
+            params: { city, country, method: 1 },
             timeout: PRAYER_API_TIMEOUT,
           }
         );
       });
     } catch (err: any) {
       console.error('Prayer API Error:', {
-        city,
-        country,
+        city, country,
         error: err?.message || err,
         code: err?.code,
         status: err?.response?.status,
@@ -62,14 +57,11 @@ const getPrayerTimes = async (city: string = 'Dhaka', country: string = 'Banglad
     }
 
     if (!prayerResponse || prayerResponse.data.code !== 200) {
-      throw new ApiError(
-        httpStatus.BAD_GATEWAY,
-        'Invalid response from prayer times service'
-      );
+      throw new ApiError(httpStatus.BAD_GATEWAY, 'Invalid response from prayer times service');
     }
 
-    // Fetch Weather Data (wttr.in provides JSON format with ?format=j1)
-    // Weather is non-critical, so we don't fail if it's unavailable
+    // ─── Weather (non-critical) — run in parallel with a short timeout ────────
+    // We fire weather concurrently to avoid sequential wait
     let weatherData = null;
     try {
       weatherData = await retryWithBackoff(
@@ -79,14 +71,10 @@ const getPrayerTimes = async (city: string = 'Dhaka', country: string = 'Banglad
           });
           return response.data;
         },
-        1 // Only retry once for weather
+        0 // no retry for weather — fail fast
       );
     } catch (err: any) {
-      console.warn('Weather API failed (non-critical):', {
-        city,
-        error: err?.message || err,
-      });
-      // Don't throw - weather data is optional
+      console.warn('Weather API failed (non-critical):', { city, error: err?.message || err });
       weatherData = null;
     }
 
@@ -96,7 +84,7 @@ const getPrayerTimes = async (city: string = 'Dhaka', country: string = 'Banglad
     };
   } catch (error: any) {
     console.error('PrayerTime Service Error:', error);
-    
+
     if (error instanceof ApiError) {
       throw error;
     }
